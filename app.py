@@ -1,17 +1,24 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, redirect, url_for
 from PIL import Image
-import io
-import base64
 import numpy as np
 import tensorflow as tf
+import os
+import base64
+import uuid
 
 app = Flask(__name__)
+model = tf.keras.models.load_model('model/shrub_model.h5')
 
-# Load your trained model (example path)
-model = tf.keras.models.load_model('shrub_model.h5')
+UPLOAD_FOLDER = 'static/captured_images'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Define the class names (update accordingly)
-class_names = ['Bayabas', 'Hagunoy', 'Otot-otot']
+labels = ['Hagunoy', 'Bayabas', 'Otot-otot']
+
+def preprocess_image(image_path):
+    img = Image.open(image_path).convert('RGB')
+    img = img.resize((224, 224))  # adjust based on your model input
+    img_array = np.array(img) / 255.0
+    return np.expand_dims(img_array, axis=0)
 
 @app.route('/')
 def index():
@@ -19,24 +26,23 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    data = request.get_json()
-    image_data = data.get('image')
-    
-    # Decode the image
-    header, encoded = image_data.split(',', 1)
-    image_bytes = io.BytesIO(base64.b64decode(encoded))
-    img = Image.open(image_bytes)
-    
-    # Preprocess the image for prediction (resize, normalize, etc.)
-    img = img.resize((224, 224))  # Example resize
-    img = np.array(img) / 255.0  # Normalize
-    img = np.expand_dims(img, axis=0)  # Add batch dimension
-    
-    # Make prediction
-    prediction = model.predict(img)
-    predicted_class = class_names[np.argmax(prediction)]
-    
-    return jsonify({"prediction": predicted_class})
+    try:
+        data_url = request.form['image']
+        header, encoded = data_url.split(",", 1)
+        img_bytes = base64.b64decode(encoded)
+
+        filename = f"{uuid.uuid4().hex}.jpg"
+        image_path = os.path.join(UPLOAD_FOLDER, filename)
+        with open(image_path, "wb") as f:
+            f.write(img_bytes)
+
+        processed = preprocess_image(image_path)
+        prediction = model.predict(processed)
+        predicted_label = labels[np.argmax(prediction)]
+
+        return render_template('result.html', prediction=predicted_label, image_path='/' + image_path)
+    except Exception as e:
+        return f"Prediction failed: {e}"
 
 if __name__ == '__main__':
     app.run(debug=True)
