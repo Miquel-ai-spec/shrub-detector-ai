@@ -1,16 +1,16 @@
 from flask import Flask, render_template, request, jsonify
-from PIL import Image
-import io
 import base64
+import io
+from PIL import Image
 import numpy as np
 import tensorflow as tf
 
 app = Flask(__name__)
 
-# Load your trained model (example path)
+# Load your model (adjust if you stored it in a subfolder)
 model = tf.keras.models.load_model('shrub_model.h5')
 
-# Define the class names (update accordingly)
+# Define class names
 class_names = ['Bayabas', 'Hagunoy', 'Otot-otot']
 
 @app.route('/')
@@ -19,24 +19,29 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    data = request.get_json()
-    image_data = data.get('image')
-    
-    # Decode the image
-    header, encoded = image_data.split(',', 1)
-    image_bytes = io.BytesIO(base64.b64decode(encoded))
-    img = Image.open(image_bytes)
-    
-    # Preprocess the image for prediction (resize, normalize, etc.)
-    img = img.resize((224, 224))  # Example resize
-    img = np.array(img) / 255.0  # Normalize
-    img = np.expand_dims(img, axis=0)  # Add batch dimension
-    
-    # Make prediction
-    prediction = model.predict(img)
-    predicted_class = class_names[np.argmax(prediction)]
-    
-    return jsonify({"prediction": predicted_class})
+    try:
+        data = request.get_json()
+        image_data = data.get('image')
 
-if __name__ == '__main__':
-    app.run(debug=True)
+        if not image_data:
+            return jsonify({"error": "No image received"}), 400
+
+        # Decode base64 image
+        header, encoded = image_data.split(",", 1)
+        image_bytes = io.BytesIO(base64.b64decode(encoded))
+        image = Image.open(image_bytes).convert("RGB")
+
+        # Preprocess the image
+        image = image.resize((224, 224))  # or the size your model expects
+        image = np.array(image) / 255.0
+        image = np.expand_dims(image, axis=0)
+
+        # Predict
+        predictions = model.predict(image)
+        predicted_class = class_names[np.argmax(predictions)]
+
+        return jsonify({"prediction": predicted_class})
+
+    except Exception as e:
+        print("Error:", e)
+        return jsonify({"error": str(e)}), 500
