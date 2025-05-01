@@ -1,85 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Shrub Detection</title>
+    <title>Shrub Detector AI</title>
     <style>
-        #webcam {
-            width: 100%;
-            max-width: 600px;
-            border: 1px solid black;
-        }
-        #capture {
-            margin-top: 10px;
-        }
+        video, canvas, img { max-width: 100%; height: auto; margin: 10px 0; }
+        button { padding: 10px 20px; font-size: 16px; }
     </style>
 </head>
 <body>
-    <h2>Shrub Detection</h2>
-    <video id="webcam" autoplay></video>
-    <br>
-    <button id="capture">Capture Image</button>
-    <br>
+    <h1>Shrub Detection (Back Camera)</h1>
+
+    <video id="video" autoplay playsinline></video><br>
+    <button onclick="captureImage()">Capture</button>
     <canvas id="canvas" style="display:none;"></canvas>
-    <br>
-    <img id="resultImage" style="max-width: 300px; display:none;">
-    <h3 id="predictionResult"></h3>
-
+    <form id="form" method="POST" action="/predict">
+        <input type="hidden" name="image" id="imageInput">
+    </form>
     <script>
-        let video = document.getElementById('webcam');
-        let captureButton = document.getElementById('capture');
-        let canvas = document.getElementById('canvas');
-        let resultImage = document.getElementById('resultImage');
-        let predictionResult = document.getElementById('predictionResult');
-        
-        // Start the webcam (back camera for mobile)
-        navigator.mediaDevices.enumerateDevices().then(devices => {
-            const backCamera = devices.find(device => device.kind === 'videoinput' && device.label.includes('back'));
-            if (backCamera) {
-                navigator.mediaDevices.getUserMedia({
-                    video: {
-                        deviceId: backCamera.deviceId
-                    }
-                }).then(stream => {
-                    video.srcObject = stream;
-                }).catch(err => console.error('Error accessing camera:', err));
-            } else {
-                alert('Back camera not found');
-            }
-        });
-
-        // Capture image and send to Flask server
-       <script>
-    function captureAndSend() {
-        const canvas = document.createElement('canvas');
         const video = document.getElementById('video');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        const imageData = canvas.toDataURL('image/png');
-
-        fetch('/predict', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ image: imageData }),
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: "environment" } }, // Back camera
+            audio: false
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.prediction) {
-                document.getElementById('result').innerText = "Prediction: " + data.prediction;
-            } else {
-                document.getElementById('result').innerText = "Error: " + (data.error || 'Unknown error');
-            }
-        })
+        .then(stream => { video.srcObject = stream; })
         .catch(err => {
-            console.error(err);
-            document.getElementById('result').innerText = "Request failed.";
+            alert("Could not access back camera. Falling back to default.");
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(stream => { video.srcObject = stream; });
         });
-    }
-</script>
 
+        function captureImage() {
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            document.getElementById('imageInput').value = dataUrl;
+            document.getElementById('form').submit();
+        }
+    </script>
 </body>
 </html>
