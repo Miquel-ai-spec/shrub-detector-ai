@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 flask
 tensorflow
 numpy
 pillow
+=======
+flask
+tensorflow
+numpy
+pillow
+>>>>>>> bac5aaf4572a502b24061e89bc243f57f1405348
