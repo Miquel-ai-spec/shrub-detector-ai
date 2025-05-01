@@ -1,52 +1,86 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <title>Shrub Detection</title>
+    <style>
+        #webcam {
+            width: 100%;
+            max-width: 600px;
+            border: 1px solid black;
+        }
+        #capture {
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Shrub Detection AI</h1>
-    <video id="camera" width="300" autoplay></video>
+    <h2>Shrub Detection</h2>
+    <video id="webcam" autoplay></video>
     <br>
-    <button onclick="capture()">Capture & Predict</button>
-    <br><br>
-    <canvas id="canvas" width="224" height="224" style="display: none;"></canvas>
-    <div id="result"></div>
+    <button id="capture">Capture Image</button>
+    <br>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <br>
+    <img id="resultImage" style="max-width: 300px; display:none;">
+    <h3 id="predictionResult"></h3>
 
     <script>
-        const video = document.getElementById('camera');
+        let video = document.getElementById('webcam');
+        let captureButton = document.getElementById('capture');
+        let canvas = document.getElementById('canvas');
+        let resultImage = document.getElementById('resultImage');
+        let predictionResult = document.getElementById('predictionResult');
+        
+        // Start the webcam (back camera for mobile)
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+            const backCamera = devices.find(device => device.kind === 'videoinput' && device.label.includes('back'));
+            if (backCamera) {
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        deviceId: backCamera.deviceId
+                    }
+                }).then(stream => {
+                    video.srcObject = stream;
+                }).catch(err => console.error('Error accessing camera:', err));
+            } else {
+                alert('Back camera not found');
+            }
+        });
 
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                video.srcObject = stream;
-            });
+        // Capture image and send to Flask server
+        captureButton.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            let ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        function capture() {
-            const canvas = document.getElementById('canvas');
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, 224, 224);
+            let base64Image = canvas.toDataURL('image/jpeg');
 
-            const dataURL = canvas.toDataURL('image/jpeg');
+            // Show captured image
+            resultImage.src = base64Image;
+            resultImage.style.display = 'block';
 
+            // Send image to Flask API for prediction
             fetch('/predict', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ image: dataURL })
+                body: JSON.stringify({ image: base64Image })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.prediction) {
-                    document.getElementById('result').innerHTML = `<h2>Prediction: ${data.prediction}</h2>`;
-                } else if (data.error) {
-                    document.getElementById('result').innerHTML = `<p style="color:red;">Error: ${data.error}</p>`;
+                    predictionResult.innerHTML = 'Prediction: ' + data.prediction;
+                } else {
+                    predictionResult.innerHTML = 'Error: ' + data.error;
                 }
             })
             .catch(err => {
-                document.getElementById('result').innerHTML = `<p style="color:red;">Error: ${err}</p>`;
+                console.error('Error:', err);
+                predictionResult.innerHTML = 'Failed to get prediction';
             });
-        }
+        });
     </script>
 </body>
 </html>
