@@ -1,43 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Shrub Detector AI</title>
+    <title>Shrub Detection (Back Camera)</title>
     <style>
         video, canvas, img { max-width: 100%; height: auto; margin: 10px 0; }
         button { padding: 10px 20px; font-size: 16px; }
     </style>
 </head>
 <body>
-    <h1>Shrub Detection (Back Camera)</h1>
+    <h1>Shrub Detection AI</h1>
 
+    <!-- Video Stream -->
     <video id="video" autoplay playsinline></video><br>
-    <button onclick="captureImage()">Capture</button>
-    <canvas id="canvas" style="display:none;"></canvas>
+    <button onclick="captureImage()">Capture & Predict</button>
+
+    <!-- Hidden Canvas and Form -->
+    <canvas id="canvas" style="display: none;"></canvas>
     <form id="form" method="POST" action="/predict">
         <input type="hidden" name="image" id="imageInput">
     </form>
+
     <script>
         const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const imageInput = document.getElementById('imageInput');
 
+        // Try to use the back camera
         navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { exact: "environment" } }, // Back camera
+            video: { facingMode: { exact: "environment" } },
             audio: false
-        })
-        .then(stream => { video.srcObject = stream; })
-        .catch(err => {
-            alert("Could not access back camera. Falling back to default.");
+        }).then(stream => {
+            video.srcObject = stream;
+        }).catch(err => {
+            // Fallback to default camera if back not available
             navigator.mediaDevices.getUserMedia({ video: true, audio: false })
                 .then(stream => { video.srcObject = stream; });
         });
 
         function captureImage() {
-            const canvas = document.getElementById('canvas');
-            const context = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const dataUrl = canvas.toDataURL('image/jpeg');
-            document.getElementById('imageInput').value = dataUrl;
+            imageInput.value = dataUrl;
             document.getElementById('form').submit();
         }
     </script>
