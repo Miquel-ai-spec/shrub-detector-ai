@@ -1,24 +1,30 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request
 from PIL import Image
 import numpy as np
 import tensorflow as tf
-import os
+import io
 import base64
-import uuid
 
 app = Flask(__name__)
-model = tf.keras.models.load_model('shrub_model.h5')
 
-UPLOAD_FOLDER = 'static/captured_images'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+class ShrubClassifier:
+    def __init__(self, model_path, labels):
+        self.model = tf.keras.models.load_model(model_path)
+        self.labels = labels
+
+    def preprocess_image(self, image_bytes):
+        img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+        img = img.resize((224, 224))  # Adjust if your model needs a different size
+        img_array = np.array(img) / 255.0
+        return np.expand_dims(img_array, axis=0)
+
+    def predict(self, image_bytes):
+        processed = self.preprocess_image(image_bytes)
+        prediction = self.model.predict(processed)
+        return self.labels[np.argmax(prediction)]
 
 labels = ['Hagunoy', 'Bayabas', 'Otot-otot']
-
-def preprocess_image(image_path):
-    img = Image.open(image_path).convert('RGB')
-    img = img.resize((224, 224))  # adjust based on your model input
-    img_array = np.array(img) / 255.0
-    return np.expand_dims(img_array, axis=0)
+classifier = ShrubClassifier('shrub_model.h5', labels)
 
 @app.route('/')
 def index():
@@ -31,16 +37,8 @@ def predict():
         header, encoded = data_url.split(",", 1)
         img_bytes = base64.b64decode(encoded)
 
-        filename = f"{uuid.uuid4().hex}.jpg"
-        image_path = os.path.join(UPLOAD_FOLDER, filename)
-        with open(image_path, "wb") as f:
-            f.write(img_bytes)
-
-        processed = preprocess_image(image_path)
-        prediction = model.predict(processed)
-        predicted_label = labels[np.argmax(prediction)]
-
-        return render_template('result.html', prediction=predicted_label, image_path='/' + image_path)
+        predicted_label = classifier.predict(img_bytes)
+        return render_template('result.html', prediction=predicted_label, image_data=data_url)
     except Exception as e:
         return f"Prediction failed: {e}"
 
