@@ -1,16 +1,16 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, render_template, request, jsonify
 from PIL import Image
+import io
+import base64
 import numpy as np
 import tensorflow as tf
-import base64
-import io
 
 app = Flask(__name__)
 
-# Load your model once when the app starts
-model = tf.keras.models.load_model("shrub_model.h5")
+# Load your trained model (example path)
+model = tf.keras.models.load_model('shrub_model.h5')
 
-# Define your class labels (adjust if your model differs)
+# Define the class names (update accordingly)
 class_names = ['Bayabas', 'Hagunoy', 'Otot-otot']
 
 @app.route('/')
@@ -19,29 +19,24 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    try:
-        data = request.get_json()
-
-        # Expect base64 image string in "image"
-        if 'image' not in data:
-            return jsonify({"error": "No image data provided"}), 400
-
-        data_url = data['image']
-        header, encoded = data_url.split(',', 1)  # Split off base64 header
-        image_data = base64.b64decode(encoded)
-
-        image = Image.open(io.BytesIO(image_data)).convert('RGB')
-        image = image.resize((224, 224))
-        img_array = np.array(image) / 255.0
-        img_array = np.expand_dims(img_array, axis=0)  # (1, 224, 224, 3)
-
-        predictions = model.predict(img_array)
-        predicted_class = class_names[np.argmax(predictions)]
-
-        return jsonify({"prediction": predicted_class})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.get_json()
+    image_data = data.get('image')
+    
+    # Decode the image
+    header, encoded = image_data.split(',', 1)
+    image_bytes = io.BytesIO(base64.b64decode(encoded))
+    img = Image.open(image_bytes)
+    
+    # Preprocess the image for prediction (resize, normalize, etc.)
+    img = img.resize((224, 224))  # Example resize
+    img = np.array(img) / 255.0  # Normalize
+    img = np.expand_dims(img, axis=0)  # Add batch dimension
+    
+    # Make prediction
+    prediction = model.predict(img)
+    predicted_class = class_names[np.argmax(prediction)]
+    
+    return jsonify({"prediction": predicted_class})
 
 if __name__ == '__main__':
     app.run(debug=True)
