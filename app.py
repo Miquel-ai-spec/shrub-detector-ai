@@ -7,7 +7,7 @@ import base64
 import uuid
 
 app = Flask(__name__)
-model = tf.keras.models.load_model('model/shrub_model.h5')
+model = tf.keras.models.load_model('shrub_model.h5')
 
 UPLOAD_FOLDER = 'static/captured_images'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
