@@ -2,20 +2,51 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Shrub Detector AI</title>
+    <title>Shrub Detection</title>
 </head>
 <body>
     <h1>Shrub Detection AI</h1>
-    <video id="video" width="300" autoplay></video>
+    <video id="camera" width="300" autoplay></video>
     <br>
-    <button id="capture">Capture</button>
-    <canvas id="canvas" width="224" height="224" style="display:none;"></canvas>
-    <form id="form" method="POST" enctype="multipart/form-data">
-        <input type="hidden" name="image" id="image-data">
-        <button type="submit">Detect</button>
-    </form>
-    <p id="result"></p>
+    <button onclick="capture()">Capture & Predict</button>
+    <br><br>
+    <canvas id="canvas" width="224" height="224" style="display: none;"></canvas>
+    <div id="result"></div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        const video = document.getElementById('camera');
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            });
+
+        function capture() {
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, 224, 224);
+
+            const dataURL = canvas.toDataURL('image/jpeg');
+
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image: dataURL })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.prediction) {
+                    document.getElementById('result').innerHTML = `<h2>Prediction: ${data.prediction}</h2>`;
+                } else if (data.error) {
+                    document.getElementById('result').innerHTML = `<p style="color:red;">Error: ${data.error}</p>`;
+                }
+            })
+            .catch(err => {
+                document.getElementById('result').innerHTML = `<p style="color:red;">Error: ${err}</p>`;
+            });
+        }
+    </script>
 </body>
 </html>
