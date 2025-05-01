@@ -6,7 +6,6 @@ from flask import Flask, render_template, request
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from PIL import Image
-
 app = Flask(__name__)
 model = load_model('shrub_model.h5')
 class_names = ['Bayabas', 'Hagunoy', 'Otot-otot']
